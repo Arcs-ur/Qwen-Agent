@@ -449,7 +449,7 @@ def main():
     llm_config = {
         'model': 'Qwen/Qwen3-Coder-480B-A35B-Instruct',
         'model_server': 'https://api-inference.modelscope.cn/v1',
-        'api_key': 'ms-df44f694-9197-4fff-beaf-677b6bdc5e1b' # 请替换为您的 ModelScope API Key
+        'api_key': 'xxxx' # 请替换为您的 ModelScope API Key
     }
     llm = get_chat_model(llm_config)
 

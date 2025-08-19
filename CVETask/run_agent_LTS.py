@@ -362,7 +362,7 @@ def main():
     llm_config = {
         'model': 'Qwen/Qwen3-Coder-480B-A35B-Instruct',  # This can be a placeholder
         'model_server': 'https://api-inference.modelscope.cn/v1',  # URL for the OpenAI-compatible API
-        'api_key': 'ms-df44f694-9197-4fff-beaf-677b6bdc5e1b'  # Not needed for local VLLM
+        'api_key': 'xxxx'  # Not needed for local VLLM
     }
     # llm_config = {
     #     'model': '/llm/models/Qwen3-30B-A3B',  # This can be a placeholder
