@@ -454,20 +454,25 @@ def main():
     llm = get_chat_model(llm_config)
 
     # --- 创建主交互代理 ---
-    system_prompt = """
-    You are an intelligent cybersecurity assistant. Your mission is to automate the processing of CVE vulnerabilities in a Docker image.
-    You must strictly follow these steps and call the tools in sequence:
-    1.  **Scan Images**: Use the `trivy_scanner` tool to scan the user-provided target image and base image. This will produce two JSON files.
-    2.  **Convert Reports**: Use the `json_to_csv_converter` tool for each of the two JSON files to convert them into CSV format.
-    3.  **Classify CVEs**: Call the `cve_classifier` tool ONCE, passing the file paths of the two CSVs you just created. This tool will do the classification and return structured data containing lists of 'type1_cves', 'type2_cves', and 'type3_cves_to_analyze'.
-    4.  **Analyze Type-3 CVEs**: The previous step gave you a list of Type-3 CVEs. Now, you must act as a security expert. For EACH AND EVERY CVE in the 'type3_cves_to_analyze' list, generate a JSON object with your analysis. The format for each analysis must be: `{"cve": {... a dict containing the original CVE data ...}, "analysis": {"action": "ignore" | "suggest_patch", "reason": "...determine whether the CVE is relevant to the image,if not, the image not impacted by this issue,if yes, give the reason and some details...", "suggestion": "..." | null}}`.
-    5.  **Generate Final Report**: After analyzing all Type-3 CVEs, call the `cve_report_generator` tool exactly ONCE. You will construct its `classified_cves` parameter as follows:
-        - The 'type1_cves' key should contain the list of Type-1 CVEs from step 3.
-        - The 'type2_cves' key should contain the list of Type-2 CVEs from step 3.
-        - The 'type3_results' key should contain the list of your analysis JSON objects from step 4.
-    6.  **Conclude**: After the report is generated successfully, inform the user that the task is complete and state the location of the output files.
-    """
-
+    # system_prompt = """
+    # You are an intelligent cybersecurity assistant. Your mission is to automate the processing of CVE vulnerabilities in a Docker image.
+    # You must strictly follow these steps and call the tools in sequence:
+    # 1.  **Scan Images**: Use the `trivy_scanner` tool to scan the user-provided target image and base image. This will produce two JSON files.
+    # 2.  **Convert Reports**: Use the `json_to_csv_converter` tool for each of the two JSON files to convert them into CSV format.
+    # 3.  **Classify CVEs**: Call the `cve_classifier` tool ONCE, passing the file paths of the two CSVs you just created. This tool will do the classification and return structured data containing lists of 'type1_cves', 'type2_cves', and 'type3_cves_to_analyze'.
+    # 4.  **Analyze Type-3 CVEs**: The previous step gave you a list of Type-3 CVEs. Now, you must act as a security expert. For EACH AND EVERY CVE in the 'type3_cves_to_analyze' list, generate a JSON object with your analysis. The format for each analysis must be: `{"cve": {... a dict containing the original CVE data ...}, "analysis": {"action": "ignore" | "suggest_patch", "reason": "...determine whether the CVE is relevant to the image,if not, the image not impacted by this issue,if yes, give the reason and some details...", "suggestion": "..." | null}}`.
+    # 5.  **Generate Final Report**: After analyzing all Type-3 CVEs, call the `cve_report_generator` tool exactly ONCE. You will construct its `classified_cves` parameter as follows:
+    #     - The 'type1_cves' key should contain the list of Type-1 CVEs from step 3.
+    #     - The 'type2_cves' key should contain the list of Type-2 CVEs from step 3.
+    #     - The 'type3_results' key should contain the list of your analysis JSON objects from step 4.
+    # 6.  **Conclude**: After the report is generated successfully, inform the user that the task is complete and state the location of the output files.
+    # """
+    system_prompt = (
+        "你是一个智能网络安全助手。"
+        "当用户需要分析Docker镜像漏洞时，请使用 `cve_workflow_tool` 工具来完成任务。"
+        "你需要从用户处获取 `target_image` 和 `base_image` 的名称。"
+        "如果缺少信息，请向用户提问。"
+    )
     # 将llm实例传入我们的大工具
     cve_tool = CVEWorkflowTool(llm=llm)
     tool_list = [

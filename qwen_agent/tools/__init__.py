@@ -26,6 +26,7 @@ from .storage import Storage
 from .web_extractor import WebExtractor
 from .mcp_manager import MCPManager
 from .web_search import WebSearch
+from .cve_workflow import cve_workflow
 
 __all__ = [
     'BaseTool',
@@ -46,4 +47,5 @@ __all__ = [
     'PythonExecutor',
     'MCPManager',
     'WebSearch',
+    'cve_workflow',
 ]
