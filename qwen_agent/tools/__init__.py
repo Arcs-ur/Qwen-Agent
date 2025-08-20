@@ -27,6 +27,8 @@ from .web_extractor import WebExtractor
 from .mcp_manager import MCPManager
 from .web_search import WebSearch
 from .cve_workflow import CVEWorkflowTool
+from .trivy_scanner import TrivyScanner
+
 
 __all__ = [
     'BaseTool',
@@ -48,4 +50,5 @@ __all__ = [
     'MCPManager',
     'WebSearch',
     'CVEWorkflowTool',
+    'TrivyScanner',
 ]

@@ -18,7 +18,7 @@ from typing import List, Literal
 
 # Settings for LLMs
 DEFAULT_MAX_INPUT_TOKENS: int = int(os.getenv(
-    'QWEN_AGENT_DEFAULT_MAX_INPUT_TOKENS', 58000))  # The LLM will truncate the input messages if they exceed this limit
+    'QWEN_AGENT_DEFAULT_MAX_INPUT_TOKENS', 128000))  # The LLM will truncate the input messages if they exceed this limit
 
 # Settings for agents
 MAX_LLM_CALL_PER_RUN: int = int(os.getenv('QWEN_AGENT_MAX_LLM_CALL_PER_RUN', 20))

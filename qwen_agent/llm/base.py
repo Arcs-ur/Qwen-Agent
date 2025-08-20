@@ -371,7 +371,8 @@ class BaseChatModel(ABC):
     ) -> Iterator[List[Message]]:
         pre_msg = []
         for pre_msg in messages:
-            yield self._postprocess_messages(pre_msg, fncall_mode=fncall_mode, generate_cfg=generate_cfg)
+            if pre_msg != []:
+                yield self._postprocess_messages(pre_msg, fncall_mode=fncall_mode, generate_cfg=generate_cfg)
         logger.debug(f'LLM Output: \n{pformat([_.model_dump() for _ in pre_msg], indent=2)}')
 
     def _convert_messages_to_target_type(self, messages: List[Message],

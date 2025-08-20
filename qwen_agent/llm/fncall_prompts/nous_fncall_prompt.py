@@ -175,6 +175,7 @@ class NousFnCallPrompt(BaseFnCallPrompt):
                                 new_content = []
                             # TODO: process incomplete tool-call messages
                             _extra = copy.deepcopy(extra)
+                            if _extra is None: _extra = dict()
                             _extra['function_id'] = str(tool_id)
                             new_messages.append(
                                 Message(
@@ -215,6 +216,7 @@ class NousFnCallPrompt(BaseFnCallPrompt):
                             logger.warning('Invalid json tool-calling arguments')
                             fn_name, fn_args = extract_fn(one_tool_call_txt[0].strip())
                             _extra = copy.deepcopy(extra)
+                            if _extra is None: _extra = dict()
                             _extra['function_id'] = str(tool_id)
                             new_messages.append(
                                 Message(
@@ -228,6 +230,7 @@ class NousFnCallPrompt(BaseFnCallPrompt):
                                 ))
                     if fn:
                         _extra = copy.deepcopy(extra)
+                        if _extra is None: _extra = dict()
                         _extra['function_id'] = str(tool_id)
                         new_messages.append(
                             Message(
