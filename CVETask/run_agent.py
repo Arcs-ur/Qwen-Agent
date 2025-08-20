@@ -94,6 +94,7 @@ class CVEClassifier(BaseTool):
             return cves
         target_cves, base_cves = read_cves_from_csv(target_csv_path), read_cves_from_csv(base_csv_path)
         base_cve_ids = set(base_cves.keys())
+        target_cve_ids = set(target_cves.keys())
         type1_cves, type2_cves, type3_cves = [], [], []
         for cve_id, cve_data in target_cves.items():
             if not cve_data.get("FixedVersion"): type1_cves.append(cve_data)
@@ -102,6 +103,8 @@ class CVEClassifier(BaseTool):
 
         summary = (
             f"Successfully classified CVEs. "
+            f"base_cve_num{len(base_cve_ids)}"
+            f"target_cve_num{len(target_cve_ids)}"
             f"Found {len(type1_cves)} Type-1, "
             f"{len(type2_cves)} Type-2, and "
             f"{len(type3_cves)} Type-3 vulnerabilities for analysis."
@@ -138,7 +141,8 @@ class CVEReportGenerator(BaseTool):
             count2 = _write_ignore_file(Path(WORKSPACE)/'trivyignore-type2.yaml', type2_ignores, "The affected package is not used directly by our application. It comes from the underlying base image. We will continue to monitor and adopt a newer base image if one becomes available that resolves this issue.")
 
             type3_results = cves_data.get('type3_results', [])
-            type3_ignores = [{'id': i.get('cve', {}).get('VulnerabilityID'), 'url': i.get('cve', {}).get('PrimaryURL'), 'reason': f"{i.get('analysis', {}).get('reason', 'N/A')}"} for i in type3_results]
+
+            type3_ignores = [{'id': i.get('cve', {}).get('VulnerabilityID'), 'url': i.get('cve', {}).get('PrimaryURL'), 'reason': f"{i.get('analysis', {}).get('analysis', 'N/A')}"} for i in type3_results]
             count3 = _write_ignore_file(Path(WORKSPACE)/'trivyignore-type3.yaml', type3_ignores, "Analyzed by agent.")
 
             suggestions = [f"[{i.get('cve', {}).get('VulnerabilityID')}/{i.get('cve', {}).get('PkgName')}]: {i.get('analysis', {}).get('suggestion')}" for i in type3_results if i.get('analysis', {}).get('suggestion')]
@@ -154,20 +158,18 @@ class CVEReportGenerator(BaseTool):
 
 # --- 3. 专家代理的指令和【修复后】的处理函数 ---
 
-TYPE3_ANALYST_PROMPT = """You are a senior cybersecurity analyst. Your ONLY task is to analyze the provided CVE JSON data.
-Respond with a SINGLE JSON object containing your analysis. Do not add any text before or after the JSON.
-The JSON object must have this exact structure:
-{"analysis": {"action": "ignore" | "suggest_patch", "reason": "...", "suggestion": "..." | null}}"""
+# TYPE3_ANALYST_PROMPT = """You are a senior cybersecurity analyst. Your ONLY task is to analyze the provided CVE JSON data.
+# Respond with a SINGLE JSON object containing your analysis. Do not add any text before or after the JSON.
+# The JSON object must have this exact structure:
+# {"analysis": {"action": "ignore" | "suggest_patch", "reason": "...", "suggestion": "..." | null}}"""
 
 def call_llm_for_analysis(cve_data: dict, llm) -> dict:
-    """
-    专门处理已知API响应格式的分析函数
-    """
+
     prompt = f"""
     请严格按以下JSON格式分析CVE漏洞：
     {{
         "risk_level": "高/中/低",
-        "analysis": "影响分析",
+        "analysis": "影响分析, 是否会影响到被分析镜像的使用等",
         "suggestion": "修复建议",
         "workaround": "临时解决方案(如无则留空)"
     }}
@@ -371,7 +373,7 @@ def main():
     llm_config = {
         'model': 'Qwen/Qwen3-Coder-480B-A35B-Instruct',
         'model_server': 'https://api-inference.modelscope.cn/v1',
-        'api_key': 'xxxx' # 请替换为您的 ModelScope API Key
+        'api_key': 'ms-df44f694-9197-4fff-beaf-677b6bdc5e1b' # 请替换为您的 ModelScope API Key
     }
     llm = get_chat_model(llm_config)
 
