@@ -230,7 +230,7 @@ class CVEReportGenerator(BaseTool):
             count2 = _write_ignore_file(Path(WORKSPACE)/'trivyignore-type2.yaml', type2_ignores, "Inherited from base.")
 
             type3_results = cves_data.get('type3_results', [])
-            type3_ignores = [{'id': i.get('cve', {}).get('VulnerabilityID'), 'url': i.get('cve', {}).get('PrimaryURL'), 'reason': f"Type-3 (Analyzed): {i.get('analysis', {}).get('reason', 'N/A')}"} for i in type3_results]
+            type3_ignores = [{'id': i.get('cve', {}).get('VulnerabilityID'), 'url': i.get('cve', {}).get('PrimaryURL'), 'reason': f"Type-3 (Analyzed): {i.get('analysis', {}).get('analysis', 'N/A')}"} for i in type3_results]
             count3 = _write_ignore_file(Path(WORKSPACE)/'trivyignore-type3.yaml', type3_ignores, "Analyzed by agent.")
 
             suggestions = [f"[{i.get('cve', {}).get('VulnerabilityID')}/{i.get('cve', {}).get('PkgName')}]: {i.get('analysis', {}).get('recommendation')}" for i in type3_results if i.get('analysis', {}).get('recommendation')]
@@ -449,7 +449,7 @@ def main():
     llm_config = {
         'model': 'Qwen/Qwen3-Coder-480B-A35B-Instruct',
         'model_server': 'https://api-inference.modelscope.cn/v1',
-        'api_key': 'xxxx' # 请替换为您的 ModelScope API Key
+        'api_key': 'ms-df44f694-9197-4fff-beaf-677b6bdc5e1b' # 请替换为您的 ModelScope API Key
     }
     llm = get_chat_model(llm_config)
 
