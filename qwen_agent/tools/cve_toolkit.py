@@ -14,6 +14,7 @@ from pathlib import Path
 
 # --- 1. 从 Qwen-Agent 框架导入依赖 ---
 from .base import BaseTool, register_tool
+from .base import BaseToolWithFileAccess
 from ..llm import BaseChatModel
 
 # --- 2. 全局配置 ---
@@ -117,18 +118,24 @@ class CVEReportGenerator(BaseTool):
                 type1_ignores = [{'id': c.get('VulnerabilityID', ''), 'url':c.get('PrimaryURL',''), 'reason': "There is currently no recommended version available to fix this vulnerability. We will continue to monitor for updates and apply a fix once it is released."} for c in cves_data.get('type1_cves', [])]
                 count1 = _write_ignore_file(Path(WORKSPACE, 'trivyignore-type1.yaml'), type1_ignores, "No fix available.")
                 final_messages.append(f"{count1}条Type-1规则 -> trivyignore-type1.yaml")
+
                 all_ignores.extend(type1_ignores)
+
                 type2_ignores = [{'id': c.get('VulnerabilityID', ''), 'url':c.get('PrimaryURL',''), 'reason': "The affected package is not used directly by our application. It comes from the underlying base image. We will continue to monitor and adopt a newer base image if one becomes available that resolves this issue."} for c in cves_data.get('type2_cves', [])]
                 count2 = _write_ignore_file(Path(WORKSPACE, 'trivyignore-type2.yaml'), type2_ignores, "Inherited from base.")
                 final_messages.extend(f"{count2}条Type-2规则 -> trivyignore-type2.yaml")
+
                 all_ignores.append(type2_ignores)
+                
             if 'type3_results' in cves_data:
                 type3_results = cves_data.get('type3_results', [])
                 print(type3_results)
                 type3_ignores = [{'id': i.get('cve', {}).get('VulnerabilityID'), 'url': i.get('cve', {}).get('PrimaryURL'), 'reason': f"Type-3 (Analyzed): {i.get('analysis', {}).get('analysis', 'N/A')}"} for i in type3_results if i.get('analysis',{}).get('whether_relevant','N/A') != 'Yes']
                 count3 = _write_ignore_file(Path(WORKSPACE, 'trivyignore-type3.yaml'), type3_ignores, "Analyzed by agent.")
                 final_messages.append(f"{count3}条Type-3规则 -> trivyignore-type3.yaml")
+                
                 all_ignores.extend(type3_ignores)
+                
                 type3_relevant = [{'id': i.get('cve', {}).get('VulnerabilityID'), 'url': i.get('cve', {}).get('PrimaryURL'), 'reason': f"Type-3 (Analyzed): {i.get('analysis', {}).get('analysis', 'N/A')}"} for i in type3_results if i.get('analysis',{}).get('whether_relevant','N/A') == 'Yes']
                 count3_relevant = _write_ignore_file(Path(WORKSPACE, 'relevant.yaml'), type3_relevant, "Analyzed by agent.")
                 final_messages.append(f"{count3}条Type-3规则 -> relevant.yaml")
@@ -185,7 +192,7 @@ class InitialWorkflowTool(BaseTool):
             return json.dumps({"status": "Error", "message": str(e)})
 
 @register_tool('cve_expert_analysis')
-class ExpertAnalysisTool(BaseTool):
+class ExpertAnalysisTool(BaseToolWithFileAccess):
     description = "调用一个由“生成者”和“反思者”组成的专家团队，对给定的Type-3漏洞列表进行深度分析，并生成最终报告。"
     parameters = [{'name': 'cve_list', 'type': 'list', 'description': '需要进行深度分析的Type-3漏洞对象列表', 'required': True}]
     def __init__(self, cfg: dict = None, llm: BaseChatModel = None, expert_team=None):
@@ -196,6 +203,14 @@ class ExpertAnalysisTool(BaseTool):
         self.expert_team = expert_team # 直接使用传入的专家团队
         self.reporter = CVEReportGenerator()
     def call(self, params: Union[str, dict], **kwargs) -> str:
+        files = kwargs.get('files', [])
+        logging.info("发现关联文件: %s", str(files))
+        for file_path in files:
+            if not os.path.exists(file_path):
+                logging.warning("文件不存在: %s", file_path)
+            else:
+                logging.info("文件验证通过: %s", file_path)
+
         params = self._verify_json_format_args(params)
         cve_list = params['cve_list']
         logging.info(f"🚀 **阶段二：Reflection专家深度分析启动** (分析 {len(cve_list)} 个漏洞)")
@@ -203,7 +218,7 @@ class ExpertAnalysisTool(BaseTool):
             return "专家分析完成：没有需要分析的Type-3漏洞。"
         all_results = []
         with ThreadPoolExecutor(max_workers=2) as executor:
-            future_to_cve = {executor.submit(self._run_single_reflection_cycle, cve): cve for cve in cve_list}
+            future_to_cve = {executor.submit(self._run_single_reflection_cycle, cve, files): cve for cve in cve_list}
             for i, future in enumerate(as_completed(future_to_cve)):
                 cve_id = future_to_cve[future].get('VulnerabilityID')
                 logging.info(f"  - ({i+1}/{len(cve_list)}) 完成对 `{cve_id}` 的专家分析...")
@@ -212,7 +227,7 @@ class ExpertAnalysisTool(BaseTool):
         logging.info("  - 正在汇总所有专家分析结果...")
         final_status = self.reporter.call(json.dumps({'classified_cves': {'type3_results': all_results}}))
         return f"✅ **专家分析全部完成!**\n\n{final_status}"
-    def _run_single_reflection_cycle(self, cve_data: dict) -> dict:
+    def _run_single_reflection_cycle(self, cve_data: dict, files:str) -> dict:
         # prompt = f"请深入分析以下CVE，并生成分析报告：\n\n{json.dumps(cve_data, indent=2, ensure_ascii=False)}"
         prompt = f"""
         请严格按以下JSON格式分析CVE漏洞：
@@ -224,12 +239,15 @@ class ExpertAnalysisTool(BaseTool):
             "workaround": "临时解决方案(如无则留空)"
         }}\n\n
         待分析CVE详情：{json.dumps(cve_data, indent=2, ensure_ascii=False)}
+        利用之前传入的Dockerfile文件{files}，根据 id 找到https://avd.aquasec.com/中相关的CVE信息，通过结合{files}，判断是否与这个项目相关。
+
         """
         response_iterator = self.expert_team.run([{'role': 'user', 'content': prompt}])
         final_response = ""
         for messages in response_iterator:
             if messages and messages[-1]['role'] == 'assistant':
                 final_response = messages[-1]['content']
+            logging.info(messages[-1]['content'])    
         analysis = {}
         try:
             json_match = re.search(r'\{.*\}', final_response, re.DOTALL)
