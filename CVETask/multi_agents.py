@@ -84,7 +84,7 @@ def main():
     llm_config = {
         'model': 'Qwen/Qwen3-Coder-480B-A35B-Instruct',
         'model_server': 'https://api-inference.modelscope.cn/v1',
-        'api_key': 'ms-30184ba8-077f-4abf-a40d-97e8d6fc7cb7' # 请替换为您的 ModelScope API Key
+        'api_key': 'ms-df44f694-9197-4fff-beaf-677b6bdc5e1b' # 请替换为您的 ModelScope API Key
     }
     llm = get_chat_model(llm_config)
 
@@ -99,6 +99,7 @@ def main():
             请严格按以下JSON格式分析CVE漏洞、回答、输出内容：
             {{
                 "risk_level": "高/中/低",
+                "whether_relevant" :"是否与目标镜像的使用有关，回答：Yes/No",
                 "analysis": "影响分析, 是否会影响到被分析镜像的使用等",
                 "suggestion": "修复建议",
                 "workaround": "临时解决方案(如无则留空)"
@@ -133,6 +134,7 @@ def main():
         " - 从返回结果中提取 `type3_cves_data` 列表。\n"
         " - 如果该列表不为空，**立即**调用 `cve_expert_analysis` 工具，并将提取出的列表作为 `cve_list` 参数传入。\n\n"
         "在整个流程中，你可以将工具返回的 `message_for_user` 字段的内容作为进度更新展示给用户。"
+
     )
 
 
@@ -156,7 +158,7 @@ def main():
                     'args': ['mcp-server-fetch'],
                     'env':{
                         "http_proxy": "http://proxy.iil.intel.com:911",
-                        "https_proxy": "http://proxy.iil.intel.com:911"
+                        "https_proxy": "http://proxy.iil.intel.com:911" 
                     }
                 },
                 "memory": {
@@ -164,7 +166,8 @@ def main():
                     "args": ["-y", "@modelcontextprotocol/server-memory"],
                     'env':{
                         "http_proxy": "http://proxy.iil.intel.com:911",
-                        "https_proxy": "http://proxy.iil.intel.com:911"
+                        "https_proxy": "http://proxy.iil.intel.com:911",
+                        "MEMORY_FILE_PATH": "/home/intel/chennan/Qwen-Agent/CVETask/workspace/doc/memory.json"
                     }
                 },
                 "sqlite" : {
