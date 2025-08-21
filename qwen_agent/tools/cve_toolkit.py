@@ -112,25 +112,40 @@ class CVEReportGenerator(BaseTool):
                         f.write(f"  statement: {entry['reason']}\n")
                 return len(ignore_list)
             final_messages = []
+            all_ignores = []
             if 'type1_cves' in cves_data or 'type2_cves' in cves_data:
                 type1_ignores = [{'id': c.get('VulnerabilityID', ''), 'url':c.get('PrimaryURL',''), 'reason': "There is currently no recommended version available to fix this vulnerability. We will continue to monitor for updates and apply a fix once it is released."} for c in cves_data.get('type1_cves', [])]
                 count1 = _write_ignore_file(Path(WORKSPACE, 'trivyignore-type1.yaml'), type1_ignores, "No fix available.")
                 final_messages.append(f"{count1}条Type-1规则 -> trivyignore-type1.yaml")
+                all_ignores.extend(type1_ignores)
                 type2_ignores = [{'id': c.get('VulnerabilityID', ''), 'url':c.get('PrimaryURL',''), 'reason': "The affected package is not used directly by our application. It comes from the underlying base image. We will continue to monitor and adopt a newer base image if one becomes available that resolves this issue."} for c in cves_data.get('type2_cves', [])]
                 count2 = _write_ignore_file(Path(WORKSPACE, 'trivyignore-type2.yaml'), type2_ignores, "Inherited from base.")
-                final_messages.append(f"{count2}条Type-2规则 -> trivyignore-type2.yaml")
+                final_messages.extend(f"{count2}条Type-2规则 -> trivyignore-type2.yaml")
+                all_ignores.append(type2_ignores)
             if 'type3_results' in cves_data:
                 type3_results = cves_data.get('type3_results', [])
-                type3_ignores = [{'id': i.get('cve', {}).get('VulnerabilityID'), 'url': i.get('cve', {}).get('PrimaryURL'), 'reason': f"Type-3 (Analyzed): {i.get('analysis', {}).get('analysis', 'N/A')}"} for i in type3_results]
+                print(type3_results)
+                type3_ignores = [{'id': i.get('cve', {}).get('VulnerabilityID'), 'url': i.get('cve', {}).get('PrimaryURL'), 'reason': f"Type-3 (Analyzed): {i.get('analysis', {}).get('analysis', 'N/A')}"} for i in type3_results if i.get('analysis',{}).get('whether_relevant','N/A') != 'Yes']
                 count3 = _write_ignore_file(Path(WORKSPACE, 'trivyignore-type3.yaml'), type3_ignores, "Analyzed by agent.")
                 final_messages.append(f"{count3}条Type-3规则 -> trivyignore-type3.yaml")
-                suggestions = [f"[{i.get('cve', {}).get('VulnerabilityID')}/{i.get('cve', {}).get('PkgName')}]: {i.get('analysis', {}).get('suggestion')}" for i in type3_results if i.get('analysis', {}).get('suggestion')]
+                all_ignores.extend(type3_ignores)
+                type3_relevant = [{'id': i.get('cve', {}).get('VulnerabilityID'), 'url': i.get('cve', {}).get('PrimaryURL'), 'reason': f"Type-3 (Analyzed): {i.get('analysis', {}).get('analysis', 'N/A')}"} for i in type3_results if i.get('analysis',{}).get('whether_relevant','N/A') == 'Yes']
+                count3_relevant = _write_ignore_file(Path(WORKSPACE, 'relevant.yaml'), type3_relevant, "Analyzed by agent.")
+                final_messages.append(f"{count3}条Type-3规则 -> relevant.yaml")
+                suggestions = [f"[{i.get('cve', {}).get('VulnerabilityID')}/{i.get('cve', {}).get('PkgName')}]: {i.get('analysis', {}).get('suggestion')}" for i in type3_results if i.get('analysis', {}).get('suggestion') and i.get('analysis',{}).get('whether_relevant','N/A') == 'Yes']
                 report_path = Path(WORKSPACE, 'reports', 'upgrade_patch_suggestions.txt')
                 with open(report_path, 'w', encoding='utf-8') as f:
                     f.write("Suggestions from Type-3 Analysis\n" + "="*50 + "\n")
                     if suggestions: f.writelines(f"{s}\n\n" for s in suggestions)
                     else: f.write("No actionable suggestions were generated.\n")
                 final_messages.append(f"{len(suggestions)}条建议 -> {report_path.name}")
+            if all_ignores:
+                combined_count = _write_ignore_file(
+                    Path(WORKSPACE, 'trivyignore.yaml'),
+                    all_ignores,
+                    "Combined ignore rules (Type1 + Type2 + Type3)"
+                )
+                final_messages.append(f"合并{combined_count}条忽略规则 -> trivyignore.yaml")
             return "报告生成完成。\n- " + "\n- ".join(final_messages)
         except Exception as e:
             return f"报告生成失败: {e}"
@@ -203,6 +218,7 @@ class ExpertAnalysisTool(BaseTool):
         请严格按以下JSON格式分析CVE漏洞：
         {{
             "risk_level": "高/中/低",
+            "whether_relevant" :"是否与目标镜像的使用有关，回答：Yes/No",
             "analysis": "影响分析, 是否与被分析镜像的使用有关，无关的原因，有关的分析",
             "suggestion": "修复建议",
             "workaround": "临时解决方案(如无则留空)"
