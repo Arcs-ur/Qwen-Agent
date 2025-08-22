@@ -123,9 +123,9 @@ class CVEReportGenerator(BaseTool):
 
                 type2_ignores = [{'id': c.get('VulnerabilityID', ''), 'url':c.get('PrimaryURL',''), 'reason': "The affected package is not used directly by our application. It comes from the underlying base image. We will continue to monitor and adopt a newer base image if one becomes available that resolves this issue."} for c in cves_data.get('type2_cves', [])]
                 count2 = _write_ignore_file(Path(WORKSPACE, 'trivyignore-type2.yaml'), type2_ignores, "Inherited from base.")
-                final_messages.extend(f"{count2}条Type-2规则 -> trivyignore-type2.yaml")
+                final_messages.append(f"{count2}条Type-2规则 -> trivyignore-type2.yaml")
 
-                all_ignores.append(type2_ignores)
+                all_ignores.extend(type2_ignores)
                 
             if 'type3_results' in cves_data:
                 type3_results = cves_data.get('type3_results', [])
